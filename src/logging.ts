@@ -6,7 +6,7 @@ import { sleep } from 'howsmydriving-utils';
 
 import { getAppRootPath } from './util/process';
 
-export const __REGION_NAME__: string = 'Fake Gotham City';
+export const __REGION_NAME__: string = 'New York City';
 
 let packpath_parent = packpath.parent() ? packpath.parent() : packpath.self();
 let packpath_self = packpath.self();
@@ -50,9 +50,6 @@ log4js.configure(log4js_config_path);
 var temp_log = log4js.getLogger('result', `${__REGION_NAME__}: `);
 
 temp_log.addContext('module', __REGION_NAME__);
-temp_log.info(
-  `howsmydriving-dummy: adding log4js (${log4js_config_path}) context: ${__REGION_NAME__}.`
-);
 
 export const log = temp_log;
 

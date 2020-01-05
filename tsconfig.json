@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["es6"],
+    "lib": ["esnext"],
     "module": "commonjs",
     "target": "es5",
     "moduleResolution": "node",
@@ -8,6 +8,7 @@
     "rootDir": ".",
     "outDir": "dist",
     "preserveSymlinks": true,
+    "downlevelIteration": true,
     "types" : ["node", "mocha"]
   },
   "include": [

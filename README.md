@@ -20,7 +20,7 @@ Requirements:
 8. Provide technical support if bugs are found in your module.
 
 ```TypeScript
-export class DummyRegion extends Region {
+export class NYCRegion extends Region {
   constructor(name: string) {
     super(name);
   }
@@ -67,7 +67,7 @@ you'd specify in an import statement to import your project).
 }
 ```
 
-How to contribute: [CONTRIBUTING.md](https://glitch.com/edit/#!/howsmydriving-dummy?path=CONTRIBUTING.md:1:0).
+How to contribute: [CONTRIBUTING.md](https://glitch.com/edit/#!/howsmydriving-nyc?path=CONTRIBUTING.md:1:0).
 
 Find this useful? [Buy @GlenBikes a coffee](https://www.buymeacoffee.com/GlenBikes)
 

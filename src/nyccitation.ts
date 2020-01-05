@@ -1,14 +1,14 @@
 import { ICitation } from 'howsmydriving-utils';
 import { Citation } from 'howsmydriving-utils';
-import { IDummyCitation } from './interfaces/idummycitation';
+import { INYCCitation } from './interfaces/inyccitation';
 
 import { log } from './logging';
 
-export class DummyCitation extends Citation implements IDummyCitation {
+export class NYCCitation extends Citation implements INYCCitation {
   [index: string]: any;
   constructor();
-  constructor(citation: IDummyCitation);
-  constructor(citation?: IDummyCitation) {
+  constructor(citation: INYCCitation);
+  constructor(citation?: INYCCitation) {
     super(citation);
 
     Object.assign(this, citation);

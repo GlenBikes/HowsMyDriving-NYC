@@ -8,9 +8,11 @@ import { Region } from 'howsmydriving-utils';
 import { createTweet } from 'howsmydriving-utils';
 import { DumpObject } from 'howsmydriving-utils';
 
-import { IDummyCitation } from './interfaces/idummycitation';
-import { DummyCitation } from './dummycitation';
+import { INYCCitation } from './interfaces/inyccitation';
+import { NYCCitation } from './nyccitation';
 import { __REGION_NAME__ } from './logging';
+
+import { getVehicleResponse } from './server';
 
 import { log } from './logging';
 
@@ -21,7 +23,7 @@ const parkingAndCameraViolationsText =
   violationsByStatusText = 'Violations by status for #',
   citationQueryText = 'License #__LICENSE__ has been queried __COUNT__ times.';
 
-export class DummyRegion extends Region {
+export class NewYorkCity extends Region {
   constructor(name: string) {
     super(name);
     log.debug(
@@ -33,55 +35,24 @@ export class DummyRegion extends Region {
     log.debug(
       `Getting citations for ${state}:${plate} in region ${__REGION_NAME__}.`
     );
-    return new Promise<Array<Citation>>((resolve, reject) => {
-      // We take all numeric digits in the license and total the numbers.
-      // If license contains x > 2 alpha , return 0. Otherwise return the total.
-      let num_digits_regex = /[0-9]/g;
-      let num_alpha_regex = /[a-zA-Z]/g;
 
-      let digits_found: Array<string> = plate.match(num_digits_regex);
+    let vehicle = {
+      state: state,
+      plate: plate,
+      types: null
+    };
 
-      let total: number = 0;
+    let external_data = {
+      lookup_source: 'api',
+      fingerprint_id: null,
+      mixpanel_id: null
+    };
 
-      for (let i = 0; i < digits_found.length; i++) {
-        total += parseInt(digits_found[i]);
-      }
+    let response = getVehicleResponse(vehicle, null, external_data);
 
-      const req_alpha_for_no_citations: number = 4;
-      let letters_found = ((plate || '').match(num_alpha_regex) || []).length;
-      let xyz_found: boolean = letters_found >= req_alpha_for_no_citations;
-      let num_citations: number = xyz_found ? 0 : total;
+    log.info(`getVehicleResponse: ${DumpObject(response)}`);
 
-      log.debug(
-        `License ${plate} has a numeric sum of ${total} and ${
-          xyz_found ? 'more than' : 'less than'
-        } ${req_alpha_for_no_citations} alpha characters exist to override that. Creating ${num_citations} citations.`
-      );
-
-      let citations: Array<ICitation> = [];
-
-      for (let i = 0; i < num_citations; i++) {
-        let citation: IDummyCitation = new DummyCitation({
-          citation_id: i + 1000,
-          license: `${state}:${plate}`,
-          region: __REGION_NAME__,
-
-          Citation: i + 2000,
-          Type: CitationType(),
-          Status: CitationStatus(),
-          ViolationDate: CitationValidationDate(),
-          ViolationLocation: CitationValidationLocation()
-        });
-
-        log.debug(
-          `Creating citation id: ${citation.citation_id} license: ${citation.license} Type: ${citation.Type} Status: ${citation.Status} ViolationDate: ${citation.ViolationDate} ViolationLocation: ${citation.ViolationLocation}.`
-        );
-
-        citations.push(citation);
-      }
-
-      resolve(citations);
-    });
+    return Promise.resolve([]);
   }
 
   ProcessCitationsForRequest(
@@ -97,7 +68,7 @@ export class DummyRegion extends Region {
     var violationsByStatus: { [status: string]: number } = {};
 
     if (!citations || Object.keys(citations).length == 0) {
-      // Should never happen. jurisdictions must return at least a dummy citation
+      // Should never happen. There is always at least a "no citations found" citation.
       throw new Error(
         'Jurisdiction modules must return at least one citation, a dummy one if there are none.'
       );
@@ -279,7 +250,7 @@ function CitationValidationLocation(): string {
 
 var RegionInstance: IRegion;
 
-RegionInstance = new DummyRegion(__REGION_NAME__);
+RegionInstance = new NewYorkCity(__REGION_NAME__);
 
 export { RegionInstance as default };
 export { RegionInstance as Region };
