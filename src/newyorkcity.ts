@@ -1,6 +1,7 @@
 import { Citation } from 'howsmydriving-utils';
 import { CompareNumericStrings } from 'howsmydriving-utils';
 import { ICitation } from 'howsmydriving-utils';
+import { ICollision, Collision } from 'howsmydriving-utils';
 import { CitationIds } from 'howsmydriving-utils';
 import { formatPlate } from 'howsmydriving-utils';
 import { IRegion } from 'howsmydriving-utils';
@@ -8,11 +9,15 @@ import { Region } from 'howsmydriving-utils';
 import { createTweet } from 'howsmydriving-utils';
 import { DumpObject } from 'howsmydriving-utils';
 
-import { INYCCitation } from './interfaces/inyccitation';
-import { NYCCitation } from './nyccitation';
+import { INYCCitationInfo, INYCFineData } from './interfaces/inyccitation';
+import { NYCCitationInfo } from './nyccitation';
+import { FineData } from './models/fine_data';
 import { __REGION_NAME__ } from './logging';
 
-import { getVehicleResponse } from './server';
+import {
+  _form_plate_lookup_response_parts,
+  getVehicleResponse
+} from './server';
 
 import { log } from './logging';
 
@@ -31,34 +36,53 @@ export class NewYorkCity extends Region {
     );
   }
 
-  GetCitationsByPlate(plate: string, state: string): Promise<Array<Citation>> {
+  GetCitationsByPlate(plate: string, state: string): Promise<Array<ICitation>> {
     log.debug(
       `Getting citations for ${state}:${plate} in region ${__REGION_NAME__}.`
     );
 
-    let vehicle = {
-      state: state,
-      plate: plate,
-      types: null
-    };
+    return new Promise<Array<ICitation>>((resolve, reject) => {
+      let vehicle = {
+        state: state,
+        plate: plate,
+        types: null
+      };
 
-    let external_data = {
-      lookup_source: 'api',
-      fingerprint_id: null,
-      mixpanel_id: null
-    };
+      let external_data = {
+        lookup_source: 'api',
+        fingerprint_id: null,
+        mixpanel_id: null
+      };
 
-    let response = getVehicleResponse(vehicle, null, external_data);
-
-    log.info(`getVehicleResponse: ${DumpObject(response)}`);
-
-    return Promise.resolve([]);
+      getVehicleResponse(vehicle, null, external_data).then(response => {
+        response.vehicle.violations.forEach(violation => {
+          //let citation: ICitation = {} as ICitation;
+        });
+        resolve([response.vehicle]);
+      });
+    });
   }
 
   ProcessCitationsForRequest(
     citations: ICitation[],
     query_count: number
   ): Array<string> {
+    let citationInfo: INYCCitationInfo = citations[0] as INYCCitationInfo;
+
+    log.info(`ProcessCitationsForRequest called with ${citations.length}`);
+
+    _form_plate_lookup_response_parts(
+      undefined,
+      0,
+      new FineData(citationInfo.fines),
+      citationInfo.plate,
+      citationInfo.plate_types,
+      citationInfo.state,
+      citationInfo.violations,
+      citationInfo.years,
+      citationInfo.camera_streak_data,
+      citationInfo.previous_lookup
+    );
     var categorizedCitations: { [request_id: string]: number } = {};
     // TODO: Does it work to convert Date's to string for sorting? Might have to use epoch.
     var chronologicalCitations: {
@@ -67,10 +91,10 @@ export class NewYorkCity extends Region {
     var violationsByYear: { [violation_year: string]: number } = {};
     var violationsByStatus: { [status: string]: number } = {};
 
-    if (!citations || Object.keys(citations).length == 0) {
+    if (!citations || citations.length == 0) {
       // Should never happen. There is always at least a "no citations found" citation.
       throw new Error(
-        'Jurisdiction modules must return at least one citation, a dummy one if there are none.'
+        "We should never be called with zero citations. The controller is responsible for handling 'no records found for region n'"
       );
     }
 
@@ -183,6 +207,14 @@ export class NewYorkCity extends Region {
 
     // Return them in the order they should be rendered.
     return [general_summary, detailed_list, type_summary, temporal_summary];
+  }
+
+  GetRecentCollisions(): Promise<Array<ICollision>> {
+    return Promise.resolve([]);
+  }
+
+  ProcessCollisions(collisions: Array<ICollision>): Promise<Array<string>> {
+    return Promise.resolve(['No tweets to tweet from NYC.']);
   }
 }
 

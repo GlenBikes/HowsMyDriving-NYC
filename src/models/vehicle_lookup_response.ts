@@ -1,7 +1,9 @@
+import { ICitation } from 'howsmydriving-utils';
+
 import { FineData } from './fine_data';
 import { CameraStreakData } from './camera_streak_data';
 
-export class VehicleLookupData {
+export class VehicleLookupData implements ICitation {
   constructor(params) {
     this.camera_streak_data = params['camera_streak_data'];
     this.fines = params['fines'];

@@ -1,3 +1,4 @@
+import './util/extend/string-ext';
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
@@ -5,17 +6,27 @@ const q = require('q');
 const rp = require('request-promise');
 const url = require('url');
 
+import { log } from './logging';
+import { DumpObject } from 'howsmydriving-utils';
+
 import {
   VehicleLookupResponse,
   VehicleLookupData
 } from './models/vehicle_lookup_response';
+
+import { FineData } from './models/fine_data';
+import { INYCFineData } from './interfaces/inyccitation';
+import { CameraStreakData } from './models/camera_streak_data';
+
+import { twitter_constants } from './constants/twitter';
+import { L10N } from './constants/L10N';
 
 const googleMapsClient = require('@google/maps').createClient({
   key: process.env.GOOGLE_PLACES_API_KEY,
   Promise: Promise
 });
 
-const mysql = require('mysql');
+const MAX_USERNAME_LENGTH = 17; // 15 + @ plus space after.
 
 // humanized names for violations
 const opacvHumanizedNames = {
@@ -734,12 +745,12 @@ export let getVehicleResponse = (
             .map(obj => obj.outstanding || 0)
             .reduce(reducer, 0);
 
-          let fines = {
+          let fines = new FineData({
             total_fined: totalFined,
             total_paid: totalPaid,
             total_reduced: totalReduced,
             total_outstanding: totalOutstanding
-          };
+          } as INYCFineData);
 
           let cameraViolations = violations.filter(
             violation =>
@@ -1233,53 +1244,81 @@ var connection = initializeConnection({
 });
 */
 
-http
-  .createServer(function(req, res) {
-    // console.log(req.url);
+http.createServer(function(req, res) {
+  // console.log(req.url);
 
-    if (req.url.match('/webhook/twitter')) {
-      if (req.method == 'POST') {
-        var body: Array<any> = [];
-        var body_str: string;
-        req
-          .on('data', chunk => {
-            body.push(chunk);
-          })
-          .on('end', () => {
-            body_str = Buffer.concat(body).toString();
-            // at this point, `body` has the entire request body stored in it as a string
+  if (req.url.match('/webhook/twitter')) {
+    if (req.method == 'POST') {
+      var body: Array<any> = [];
+      var body_str: string;
+      req
+        .on('data', chunk => {
+          body.push(chunk);
+        })
+        .on('end', () => {
+          body_str = Buffer.concat(body).toString();
+          // at this point, `body` has the entire request body stored in it as a string
 
-            console.log(body_str);
+          console.log(body_str);
 
-            const hmac = crypto.createHmac(
-              'sha256',
-              process.env.TWITTER_CONSUMER_SECRET
-            );
-            let expectedSHA =
-              'sha256=' + hmac.update(body_str).digest('base64');
+          const hmac = crypto.createHmac(
+            'sha256',
+            process.env.TWITTER_CONSUMER_SECRET
+          );
+          let expectedSHA = 'sha256=' + hmac.update(body_str).digest('base64');
 
-            if (req.headers['x-twitter-webhooks-signature'] === expectedSHA) {
-              let json = JSON.parse(body_str);
+          if (req.headers['x-twitter-webhooks-signature'] === expectedSHA) {
+            let json = JSON.parse(body_str);
 
-              if (json.tweet_create_events) {
-                console.log('We have a new tweet');
+            if (json.tweet_create_events) {
+              console.log('We have a new tweet');
 
-                json.tweet_create_events.forEach(event => {
-                  if (
-                    !event.retweeted_status &&
-                    event.user &&
-                    event.user.screen_name != 'HowsMyDrivingNY'
-                  ) {
-                    let text;
-                    let userMentions = null;
-                    let photoURLs = [];
+              json.tweet_create_events.forEach(event => {
+                if (
+                  !event.retweeted_status &&
+                  event.user &&
+                  event.user.screen_name != 'HowsMyDrivingNY'
+                ) {
+                  let text;
+                  let userMentions = null;
+                  let photoURLs = [];
 
-                    if (event.extended_tweet) {
-                      let et = event.extended_tweet;
-                      text = et.full_text;
+                  if (event.extended_tweet) {
+                    let et = event.extended_tweet;
+                    text = et.full_text;
 
-                      if (et.entities.user_mentions) {
-                        userMentions = et.entities.user_mentions
+                    if (et.entities.user_mentions) {
+                      userMentions = et.entities.user_mentions
+                        .map(mention =>
+                          text.includes(mention.screen_name)
+                            ? mention.screen_name
+                            : ''
+                        )
+                        .join(' ')
+                        .trim();
+                    }
+
+                    if (et.extended_entities) {
+                      let ee = et.extended_entities;
+
+                      if (ee.media) {
+                        let media = ee.media;
+
+                        media.map(med => {
+                          if (med.type == 'photo') {
+                            photoURLs.push(med.media_url_https);
+                          }
+                        });
+                      }
+                    }
+                  } else {
+                    text = event.text;
+
+                    if (event.entities) {
+                      let entities = event.entities;
+
+                      if (entities.user_mentions) {
+                        userMentions = entities.user_mentions
                           .map(mention =>
                             text.includes(mention.screen_name)
                               ? mention.screen_name
@@ -1288,76 +1327,46 @@ http
                           .join(' ')
                           .trim();
                       }
-
-                      if (et.extended_entities) {
-                        let ee = et.extended_entities;
-
-                        if (ee.media) {
-                          let media = ee.media;
-
-                          media.map(med => {
-                            if (med.type == 'photo') {
-                              photoURLs.push(med.media_url_https);
-                            }
-                          });
-                        }
-                      }
-                    } else {
-                      text = event.text;
-
-                      if (event.entities) {
-                        let entities = event.entities;
-
-                        if (entities.user_mentions) {
-                          userMentions = entities.user_mentions
-                            .map(mention =>
-                              text.includes(mention.screen_name)
-                                ? mention.screen_name
-                                : ''
-                            )
-                            .join(' ')
-                            .trim();
-                        }
-                      }
-
-                      if (event.extended_entities) {
-                        let ee = event.extended_entities;
-
-                        if (ee.media) {
-                          let media = ee.media;
-
-                          media.map(med => {
-                            if (med.type == 'photo') {
-                              photoURLs.push(med.media_url_https);
-                            }
-                          });
-                        }
-                      }
                     }
 
-                    let newEvent = {
-                      event_type: 'status',
-                      event_id: event.id_str,
-                      user_handle: event.user.screen_name,
-                      user_id: event.user.id,
-                      user_mentions:
-                        userMentions == null
-                          ? null
-                          : userMentions.substring(userMentions.length - 560),
-                      event_text: text.substring(text.length - 560),
-                      created_at: event.timestamp_ms,
-                      in_reply_to_message_id: event.in_reply_to_status_id_str,
-                      location:
-                        event.place && event.place.full_name
-                          ? event.place.full_name
-                          : null,
-                      responded_to: false
-                    };
+                    if (event.extended_entities) {
+                      let ee = event.extended_entities;
 
-                    console.log('newEvent: ');
-                    console.log(newEvent);
+                      if (ee.media) {
+                        let media = ee.media;
 
-                    /*
+                        media.map(med => {
+                          if (med.type == 'photo') {
+                            photoURLs.push(med.media_url_https);
+                          }
+                        });
+                      }
+                    }
+                  }
+
+                  let newEvent = {
+                    event_type: 'status',
+                    event_id: event.id_str,
+                    user_handle: event.user.screen_name,
+                    user_id: event.user.id,
+                    user_mentions:
+                      userMentions == null
+                        ? null
+                        : userMentions.substring(userMentions.length - 560),
+                    event_text: text.substring(text.length - 560),
+                    created_at: event.timestamp_ms,
+                    in_reply_to_message_id: event.in_reply_to_status_id_str,
+                    location:
+                      event.place && event.place.full_name
+                        ? event.place.full_name
+                        : null,
+                    responded_to: false
+                  };
+
+                  console.log('newEvent: ');
+                  console.log(newEvent);
+
+                  /*
                     connection.query(
                       'insert into twitter_events set ?',
                       newEvent,
@@ -1386,56 +1395,56 @@ http
                       }
                     );
                     */
-                  }
-                });
-              } else if (json.direct_message_events) {
-                console.log('We have a new direct message');
+                }
+              });
+            } else if (json.direct_message_events) {
+              console.log('We have a new direct message');
 
-                json.direct_message_events.forEach(event => {
-                  if (event.type === 'message_create') {
-                    let message_create_data = event.message_create;
-                    let photoURL = null;
+              json.direct_message_events.forEach(event => {
+                if (event.type === 'message_create') {
+                  let message_create_data = event.message_create;
+                  let photoURL = null;
 
-                    let recipient_id = message_create_data.target.recipient_id;
-                    let sender_id = message_create_data.sender_id;
+                  let recipient_id = message_create_data.target.recipient_id;
+                  let sender_id = message_create_data.sender_id;
 
-                    let sender = json.users[sender_id];
+                  let sender = json.users[sender_id];
 
-                    // # photo_url data
-                    if (message_create_data.message_data) {
-                      let md = message_create_data.message_data;
+                  // photo_url data
+                  if (message_create_data.message_data) {
+                    let md = message_create_data.message_data;
 
-                      if (md.attachment) {
-                        let att = md.attachment;
+                    if (md.attachment) {
+                      let att = md.attachment;
 
-                        if (att.media) {
-                          let media = att.media;
+                      if (att.media) {
+                        let media = att.media;
 
-                          if (media.type == 'photo') {
-                            photoURL = media.media_url_https;
-                          }
+                        if (media.type == 'photo') {
+                          photoURL = media.media_url_https;
                         }
                       }
                     }
+                  }
 
-                    if (
-                      sender &&
-                      event.message_create.target.recipient_id ===
-                        '976593574732222465'
-                    ) {
-                      let newEvent = {
-                        event_type: 'direct_message',
-                        event_id: event.id,
-                        user_handle: sender.screen_name,
-                        user_id: sender.id,
-                        event_text: message_create_data.message_data.text,
-                        created_at: event.created_timestamp,
-                        in_reply_to_message_id: null,
-                        location: null,
-                        responded_to: false
-                      };
+                  if (
+                    sender &&
+                    event.message_create.target.recipient_id ===
+                      '976593574732222465'
+                  ) {
+                    let newEvent = {
+                      event_type: 'direct_message',
+                      event_id: event.id,
+                      user_handle: sender.screen_name,
+                      user_id: sender.id,
+                      event_text: message_create_data.message_data.text,
+                      created_at: event.created_timestamp,
+                      in_reply_to_message_id: null,
+                      location: null,
+                      responded_to: false
+                    };
 
-                      /*
+                    /*
                       connection.query(
                         'insert into twitter_events set ?',
                         newEvent,
@@ -1462,111 +1471,108 @@ http
                         }
                       );
                       */
-                    }
                   }
-                });
-              }
+                }
+              });
             }
-          });
-      } else if (req.method == 'GET') {
-        var query = url.parse(req.url, true).query;
+          }
+        });
+    } else if (req.method == 'GET') {
+      var query = url.parse(req.url, true).query;
 
-        console.log(query);
+      console.log(query);
 
-        const crc_token = query.crc_token || '';
-        // creates HMAC SHA-256 hash from incomming token and your consumer secret
-        // construct response data with base64 encoded hash
-        const hmac = crypto.createHmac(
-          'sha256',
-          process.env.TWITTER_CONSUMER_SECRET
-        );
+      const crc_token = query.crc_token || '';
+      // creates HMAC SHA-256 hash from incomming token and your consumer secret
+      // construct response data with base64 encoded hash
+      const hmac = crypto.createHmac(
+        'sha256',
+        process.env.TWITTER_CONSUMER_SECRET
+      );
 
-        let response = {
-          response_token: 'sha256=' + hmac.update(crc_token).digest('base64')
-        };
+      let response = {
+        response_token: 'sha256=' + hmac.update(crc_token).digest('base64')
+      };
 
-        // # returns properly formatted json response
+      // returns properly formatted json response
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      res.end(JSON.stringify(response));
+
+      return;
+    }
+  } else if (req.url.match('/api/v1')) {
+    var parser = url.parse(req.url, true);
+
+    var query = parser.query;
+
+    var fields = findFilterFields(query.fields);
+    var potentialVehicles: Array<string>;
+
+    if (query.plate == undefined) {
+      potentialVehicles = [];
+    } else if (query.plate instanceof Array) {
+      potentialVehicles = query.plate;
+    } else {
+      potentialVehicles = [query.plate];
+    }
+
+    if (query.plate_id instanceof Array || query.state instanceof Array) {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.writeHead(422, { 'Content-Type': 'application/javascript' });
+      res.end(
+        JSON.stringify({
+          error:
+            "To look up multiple vehicles, use 'plate=<STATE>:<PLATE>', ex: 'api.howsmydrivingny.nyc/api/v1?plate=abc1234:ny'"
+        })
+      );
+
+      return;
+    }
+
+    var plate = (query.plate_id || '').toUpperCase();
+    var state = (query.state || '').toUpperCase();
+    var plateTypes =
+      query.plate_types == undefined
+        ? null
+        : query.plate_types
+            .split(',')
+            .map(item => item.toUpperCase().trim())
+            .sort();
+
+    if (plate && state) {
+      potentialVehicles.push(
+        plate + ':' + state + (plateTypes == undefined ? '' : ':' + plateTypes)
+      );
+    }
+
+    const vehicles = detectVehicles(potentialVehicles);
+
+    let externalData = {
+      lookup_source: query.lookup_source,
+      fingerprint_id: query.fingerprint_id,
+      mixpanel_id: query.mixpanel_id
+    };
+
+    if (parser.pathname.match(/\/lookup/)) {
+      var apiKey = query.api_key;
+
+      if (apiKey == undefined) {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.writeHead(200, { 'Content-Type': 'application/javascript' });
-        res.end(JSON.stringify(response));
-
-        return;
-      }
-    } else if (req.url.match('/api/v1')) {
-      var parser = url.parse(req.url, true);
-
-      var query = parser.query;
-
-      var fields = findFilterFields(query.fields);
-      var potentialVehicles: Array<string>;
-
-      if (query.plate == undefined) {
-        potentialVehicles = [];
-      } else if (query.plate instanceof Array) {
-        potentialVehicles = query.plate;
-      } else {
-        potentialVehicles = [query.plate];
-      }
-
-      if (query.plate_id instanceof Array || query.state instanceof Array) {
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.writeHead(422, { 'Content-Type': 'application/javascript' });
+        res.writeHead(401, { 'Content-Type': 'application/javascript' });
         res.end(
           JSON.stringify({
             error:
-              "To look up multiple vehicles, use 'plate=<STATE>:<PLATE>', ex: 'api.howsmydrivingny.nyc/api/v1?plate=abc1234:ny'"
+              "You must supply an api key to perform a recorded lookup, e.g. '&api_key=xxx' "
           })
         );
 
         return;
-      }
-
-      var plate = (query.plate_id || '').toUpperCase();
-      var state = (query.state || '').toUpperCase();
-      var plateTypes =
-        query.plate_types == undefined
-          ? null
-          : query.plate_types
-              .split(',')
-              .map(item => item.toUpperCase().trim())
-              .sort();
-
-      if (plate && state) {
-        potentialVehicles.push(
-          plate +
-            ':' +
-            state +
-            (plateTypes == undefined ? '' : ':' + plateTypes)
-        );
-      }
-
-      const vehicles = detectVehicles(potentialVehicles);
-
-      let externalData = {
-        lookup_source: query.lookup_source,
-        fingerprint_id: query.fingerprint_id,
-        mixpanel_id: query.mixpanel_id
-      };
-
-      if (parser.pathname.match(/\/lookup/)) {
-        var apiKey = query.api_key;
-
-        if (apiKey == undefined) {
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.writeHead(401, { 'Content-Type': 'application/javascript' });
-          res.end(
-            JSON.stringify({
-              error:
-                "You must supply an api key to perform a recorded lookup, e.g. '&api_key=xxx' "
-            })
-          );
-
-          return;
-        } else {
-          /*
+      } else {
+        /*
           let _ = connection.query(
             'select * from authorized_external_users where api_key = ?',
             [apiKey],
@@ -1590,31 +1596,268 @@ http
             }
           );
           */
-        }
+      }
+    }
+
+    Promise.all(
+      vehicles.map(vehicle => getVehicleResponse(vehicle, fields, externalData))
+    ).then(allResponses => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+
+      res.end(JSON.stringify({ data: allResponses }));
+
+      return;
+    });
+
+    // res.setHeader('Content-Type', 'application/json');
+    // res.setHeader('Access-Control-Allow-Origin', '*');
+    // res.writeHead(200, {'Content-Type': 'application/javascript'});s
+
+    // res.setHeader('Content-Type', 'application/json');
+    // res.setHeader('Access-Control-Allow-Origin', '*');
+    // res.writeHead(422, {'Content-Type': 'application/javascript'});
+    // res.end(JSON.stringify({error: "Missing either plate_id or state, both of which are required, ex: 'api.howsmydrivingny.nyc/api/v1?plate_id=abc1234&state=ny'"}));
+  }
+});
+//.listen(8080);
+
+export function _form_plate_lookup_response_parts(
+  borough_data: Array<[string, number]>,
+  frequency: number,
+  fine_data: INYCFineData,
+  plate: string,
+  plate_types: Array<string>,
+  state: string,
+  violations: Array<[string, number]>,
+  year_data: Array<[string, number]>,
+  camera_streak_data: CameraStreakData = null,
+  previous_lookup: any = null
+) {
+  // response_chunks holds tweet-length-sized parts of the response
+  // to be tweeted out or appended into a single direct message.
+  let response_chunks: Array<string> = [];
+  let violations_string: string = '';
+
+  // Get total violations
+  let total_violations: number = violations.length;
+  log.debug(`total_violations: ${total_violations}`);
+
+  // Append to initially blank string to build tweet.
+  violations_string += L10N.LOOKUP_SUMMARY_STRING.replace('__STATE__', state)
+    .replace('__PLATE__', plate)
+    .replace('__QUERY_COUNT__', frequency.toString())
+    .replace('__PLURALIZE__', L10N.pluralize(frequency));
+
+  // If this vehicle has been queried before...
+  if (previous_lookup) {
+    let previous_num_violations: number = previous_lookup.num_tickets;
+
+    violations_string += this._create_repeat_lookup_string(
+      total_violations - previous_num_violations,
+      plate,
+      previous_lookup,
+      state
+    );
+  }
+
+  response_chunks = response_chunks.concat(
+    _handle_response_part_formation(
+      'count',
+      violations,
+      L10N.LOOKUP_TICKETS_STRING_CONTD.replace(
+        '__LICENSE__',
+        L10N.format_plate(state, plate)
+      ),
+      'title',
+      'No Year Available',
+      L10N.LOOKUP_TICKETS_STRING.replace(
+        '__VIOLATION_COUNT__',
+        total_violations.toString()
+      ),
+      L10N.LOOKUP_RESULTS_DETAIL_STRING
+    )
+  );
+
+  if (borough_data) {
+    response_chunks = response_chunks.concat(
+      _handle_response_part_formation(
+        'count',
+        borough_data,
+        L10N.LOOKUP_BOROUGH_STRING_CONTD.replace(
+          '__LICENSE__',
+          L10N.format_plate(state, plate)
+        ),
+        'title',
+        'No Borough Available',
+        L10N.LOOKUP_BOROUGH_STRING.replace(
+          '__LICENSE__',
+          L10N.format_plate(state, plate)
+        ),
+        L10N.LOOKUP_RESULTS_DETAIL_STRING
+      )
+    );
+  }
+
+  if (fine_data && fine_data.fines_assessed()) {
+    let cur_string = 'Known fines for ${L10N.format_plate(state, plate)}:\n\n';
+
+    let max_count_length = fine_data.max_amount().toFixed(2).length;
+    let spaces_needed = max_count_length * 2 + 1;
+
+    fine_data.FINE_FIELDS.forEach(fine_type => {
+      let amount = fine_data[fine_type] ? fine_data[fine_type] : 0;
+      let currency_string: string = amount.toFixed(2);
+      let count_length: number = currency_string.length;
+
+      // e.g., if spaces_needed is 5, and count_length is 2, we need
+      // to pad to 3.
+      let left_justify_amount: number = spaces_needed - count_length;
+
+      // formulate next string part
+      let next_part =
+        currency_string.lpad(' ', left_justify_amount) +
+        '| ' +
+        fine_type.replace('_', ' '); // What is .title{}???
+
+      next_part = `${currency_string.lpad(
+        '0',
+        left_justify_amount
+      )}| ${fine_type.replace('_', ' ')}.title()\n"`; // TODO (GlenBikes): What is .title() on a string?
+
+      // determine current string length if necessary
+      let potential_response_length = (
+        MAX_USERNAME_LENGTH +
+        ' ' +
+        cur_string +
+        next_part
+      ).length;
+
+      // If username, space, violation string so far and new part are less or
+      // equal than 280 characters, append to existing tweet string.
+      if (
+        potential_response_length <= twitter_constants.MAX_TWITTER_STATUS_LENGTH
+      ) {
+        cur_string += next_part;
+      } else {
+        response_chunks.push(cur_string);
+
+        cur_string = "Known fines for #{}_{}, cont'd:\n\n";
+        cur_string += next_part;
+      }
+    });
+
+    // add to container
+    response_chunks.push(cur_string);
+  }
+
+  if (camera_streak_data) {
+    if (camera_streak_data.max_streak && camera_streak_data.max_streak >= 5) {
+      // formulate streak string
+      let streak_string =
+        `Under @bradlander's proposed legislation, ` +
+        `this vehicle could have been booted or impounded ` +
+        `due to its ${camera_streak_data.max_streak} camera violations ` +
+        `(>= 5/year) from ${camera_streak_data.min_streak_date} ` +
+        `to ${camera_streak_data.max_streak_date}.\n`;
+
+      // add to container
+      response_chunks.push(streak_string);
+    }
+  }
+
+  // Send it back!
+  return response_chunks;
+}
+
+function _handle_response_part_formation(
+  count: string,
+  collection: Record<string, any>,
+  continued_format_string: string,
+  description: string,
+  default_description: string,
+  prefix_format_string: string,
+  result_format_string: string
+) {
+  // collect the responses
+  let response_container: Array<string> = [];
+
+  let cur_string = '';
+
+  if (prefix_format_string) {
+    cur_string += prefix_format_string;
+  }
+
+  let max_item_count = 0;
+  collection.forEach(item => {
+    if (item[count] > max_item_count) {
+      max_item_count = item[count];
+    }
+  });
+
+  let max_count_length = max_item_count.toString().length;
+  let spaces_needed = max_count_length * 2 + 1;
+
+  // Grab item
+  collection.forEach(item => {
+    // Titleize for readability.
+    log.info(`About to call title() on ${item[description]}.`);
+    let violation_description = item[description]
+      ? item[description].title()
+      : '';
+    log.info(`Called title() on ${item[description]}.`);
+
+    // Use a default description if need be
+    if (violation_description.length == 0) {
+      violation_description = default_description;
+    }
+
+    let violation_count = item[count] ? item[count] : 0;
+    let count_length = violation_count.toString().length;
+
+    // e.g., if spaces_needed is 5, and count_length is 2, we need to
+    // pad to 3.
+    let left_justify_amount = spaces_needed - count_length;
+
+    // formulate next string part
+    let next_part = result_format_string
+      .replace(
+        '__VIOLATION_COUNT',
+        violation_count.toString().lpad(' ', left_justify_amount)
+      )
+      .replace('__VIOLATION_DESCRIPTION__', violation_description);
+
+    // determine current string length
+    let potential_response_length =
+      `${cur_string}${next_part}`.length + MAX_USERNAME_LENGTH;
+
+    // If username, space, violation string so far and new part are less or
+    // equal than 280 characters, append to existing tweet string.
+    if (
+      potential_response_length <= twitter_constants.MAX_TWITTER_STATUS_LENGTH
+    ) {
+      cur_string += next_part;
+    } else {
+      response_container.push(cur_string);
+
+      if (continued_format_string) {
+        cur_string = continued_format_string;
+      } else {
+        cur_string = '';
       }
 
-      Promise.all(
-        vehicles.map(vehicle =>
-          getVehicleResponse(vehicle, fields, externalData)
-        )
-      ).then(allResponses => {
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.writeHead(200, { 'Content-Type': 'application/javascript' });
-
-        res.end(JSON.stringify({ data: allResponses }));
-
-        return;
-      });
-
-      // res.setHeader('Content-Type', 'application/json');
-      // res.setHeader('Access-Control-Allow-Origin', '*');
-      // res.writeHead(200, {'Content-Type': 'application/javascript'});s
-
-      // res.setHeader('Content-Type', 'application/json');
-      // res.setHeader('Access-Control-Allow-Origin', '*');
-      // res.writeHead(422, {'Content-Type': 'application/javascript'});
-      // res.end(JSON.stringify({error: "Missing either plate_id or state, both of which are required, ex: 'api.howsmydrivingny.nyc/api/v1?plate_id=abc1234&state=ny'"}));
+      cur_string += next_part;
     }
-  })
-  .listen(8080);
+  });
+
+  // If we finish the list with a non-empty string,
+  // append that string to response parts
+  if (cur_string.length != 0) {
+    // Append ready string into parts for response.
+    response_container.push(cur_string);
+  }
+
+  // Return parts
+  return response_container;
+}

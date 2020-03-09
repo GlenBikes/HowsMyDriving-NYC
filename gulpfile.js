@@ -5,17 +5,22 @@ const mocha = require('gulp-mocha');
 const del = require('del');
 const path = require('path');
 
-exports.build = series(clean, pretty_check, parallel(build, copyconfigfiles));
+exports.compile = compile;
+exports.build = series(clean, pretty_check, parallel(compile, copyconfigfiles));
 exports.clean = clean;
 exports.copyconfigfiles = copyconfigfiles;
 exports.test = test;
 exports.pretty = pretty;
 exports.pretty_check = pretty_check;
-exports.default = series(clean, pretty_check, parallel(build, copyconfigfiles));
+exports.default = series(
+  clean,
+  pretty_check,
+  parallel(compile, copyconfigfiles)
+);
 
 const tsProject = ts.createProject('./tsconfig.json');
 
-function build(cb) {
+function compile(cb) {
   const merge = require('merge2');
 
   var tsResult = tsProject.src().pipe(tsProject());
@@ -27,7 +32,7 @@ function build(cb) {
 }
 
 function clean(cb) {
-  return del(['dist/**/*']);
+  return del(['dist/**/*', 'definitions/**/*']);
 }
 
 function test(cb) {
