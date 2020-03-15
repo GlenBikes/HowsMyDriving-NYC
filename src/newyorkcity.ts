@@ -214,7 +214,7 @@ export class NewYorkCity extends Region {
   }
 
   ProcessCollisions(collisions: Array<ICollision>): Promise<Array<string>> {
-    return Promise.resolve(['No tweets to tweet from NYC.']);
+    return Promise.resolve([]);
   }
 }
 
