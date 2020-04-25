@@ -4,8 +4,12 @@ import { ICitation } from 'howsmydriving-utils';
 import { ICollision, Collision } from 'howsmydriving-utils';
 import { CitationIds } from 'howsmydriving-utils';
 import { formatPlate } from 'howsmydriving-utils';
-import { IRegion } from 'howsmydriving-utils';
-import { Region } from 'howsmydriving-utils';
+import {
+  IRegion,
+  Region,
+  RegionFactory,
+  IStateStore
+} from 'howsmydriving-utils';
 import { createTweet } from 'howsmydriving-utils';
 import { DumpObject } from 'howsmydriving-utils';
 
@@ -28,11 +32,22 @@ const parkingAndCameraViolationsText =
   violationsByStatusText = 'Violations by status for #',
   citationQueryText = 'License #__LICENSE__ has been queried __COUNT__ times.';
 
+export class NewYorkCityRegionFactory extends RegionFactory {
+  public name: string = __REGION_NAME__;
+
+  public createRegion(state_store: IStateStore): Promise<Region> {
+    let region: NewYorkCity = new NewYorkCity(state_store);
+
+    return Promise.resolve(region);
+  }
+}
+
 export class NewYorkCity extends Region {
-  constructor(name: string) {
-    super(name);
+  constructor(state_store: IStateStore) {
+    super(__REGION_NAME__, state_store);
+
     log.debug(
-      `Creating instance ${this.constructor.name} Region for region ${__REGION_NAME__}.`
+      `Creating instance of ${this.name} for region ${__REGION_NAME__}`
     );
   }
 
@@ -55,10 +70,12 @@ export class NewYorkCity extends Region {
       };
 
       getVehicleResponse(vehicle, null, external_data).then(response => {
+        let citations: Array<ICitation> = [];
         response.vehicle.violations.forEach(violation => {
-          //let citation: ICitation = {} as ICitation;
+          let citation: ICitation = violation as ICitation;
+          citations.push(citation);
         });
-        resolve([response.vehicle]);
+        resolve(citations);
       });
     });
   }
@@ -280,9 +297,7 @@ function CitationValidationLocation(): string {
   return `${num} ${dir} ${street}th ${street_type}`;
 }
 
-var RegionInstance: IRegion;
+let Factory: RegionFactory = new NewYorkCityRegionFactory();
 
-RegionInstance = new NewYorkCity(__REGION_NAME__);
-
-export { RegionInstance as default };
-export { RegionInstance as Region };
+export { Factory as default };
+export { Factory };
