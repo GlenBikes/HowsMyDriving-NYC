@@ -2,7 +2,7 @@ dependencies:
   '@google/maps': 1.1.0
   '@types/node': 12.12.17
   chokidar: 3.3.0
-  howsmydriving-utils: 0.1.189
+  howsmydriving-utils: 0.1.190
   log4js: 4.5.1
   packpath: 0.1.0
   request-promise: 4.2.5
@@ -672,7 +672,7 @@ packages:
       fsevents: 2.1.2
     resolution:
       integrity: sha512-dGmKLDdT3Gdl7fBUe8XK+gAtGmzy5Fn0XkkWQuYxGIgWVPPse2CxFA5mtrlD0TOHaHjEUqkWNyP1XdHoJES/4A==
-  /chokidar/3.3.1:
+  /chokidar/3.4.0:
     dependencies:
       anymatch: 3.1.1
       braces: 3.0.2
@@ -680,14 +680,14 @@ packages:
       is-binary-path: 2.1.0
       is-glob: 4.0.1
       normalize-path: 3.0.0
-      readdirp: 3.3.0
+      readdirp: 3.4.0
     dev: false
     engines:
       node: '>= 8.10.0'
     optionalDependencies:
       fsevents: 2.1.3
     resolution:
-      integrity: sha512-4QYCEWOcK3OJrxwvyyAOxFuhpvOVCYkr33LPfFNBjAD/w3sEzWsp2BUOkI4l9bHvWioAd0rc6NlHUOEaWkTeqg==
+      integrity: sha512-aXAaho2VJtisB/1fg1+3nlLJqGOuewTzQpd/Tz0yTg2R0e4IGtshYvtjowyEumcBv2z+y4+kc75Mz7j5xJskcQ==
   /class-utils/0.3.6:
     dependencies:
       arr-union: 3.1.0
@@ -2351,13 +2351,13 @@ packages:
     dev: true
     resolution:
       integrity: sha512-kssjab8CvdXfcXMXVcvsXum4Hwdq9XGtRD3TteMEvEbq0LXyiNQr6AprqKqfeaDXze7SxWvRxdpwE6ku7ikLkg==
-  /howsmydriving-twitter/0.1.126:
+  /howsmydriving-twitter/0.1.127:
     dependencies:
       app-root-dir: 1.0.2
       app-root-path: 3.0.0
-      chokidar: 3.3.1
+      chokidar: 3.4.0
       file-system: 2.2.2
-      howsmydriving-utils: 0.1.189
+      howsmydriving-utils: 0.1.190
       log4js: 4.5.1
       mime: 2.4.4
       node-downloader-helper: 1.0.12
@@ -2370,14 +2370,14 @@ packages:
     engines:
       node: 10.x
     resolution:
-      integrity: sha512-gcTBEB+MIzUA4gfLjDGH3GDtwUZ9KI0s/AVEeOqvrNSuKD4J4rE/vG3fgP6HstLGh09KBCeE8h+9l4aGaRI7oA==
-  /howsmydriving-utils/0.1.189:
+      integrity: sha512-8uxh35fk7IWvqJtN8VbQKpH4UG1QFhQJZE8q0+Hjo4HvNc+RBzEoQH0wUTm4wMwrxemQn8xfd/IFJuUjrtVlFg==
+  /howsmydriving-utils/0.1.190:
     dependencies:
       '@types/node': 12.12.37
       '@types/uuid': 3.4.9
-      chokidar: 3.3.1
+      chokidar: 3.4.0
       find-port-free-sync: 1.0.1
-      howsmydriving-twitter: 0.1.126
+      howsmydriving-twitter: 0.1.127
       log4js: 6.2.1
       merge2: 1.3.0
       packpath: 0.1.0
@@ -2386,7 +2386,7 @@ packages:
     engines:
       node: 11.15.0
     resolution:
-      integrity: sha512-VoCzy7fjwpXSw6jqr2FM9hFWjOWuilbyhAGeQSHUyJh6i9gKHThAQpo5SM/89QN6bK23S28CYc5u/UfpSoFuBg==
+      integrity: sha512-p/d3MAV7AsMmTgOogkgcVY0VcrTfCPcDpwO2GitTeYplUJenflO++XdL/zY7xceFJ0Lzc68b9fLUWo7jGR0JlA==
   /http-errors/1.7.3:
     dependencies:
       depd: 1.1.2
@@ -4173,14 +4173,14 @@ packages:
       node: '>= 8'
     resolution:
       integrity: sha512-crk4Qu3pmXwgxdSgGhgA/eXiJAPQiX4GMOZZMXnqKxHX7TaoL+3gQVo/WeuAiogr07DpnfjIMpXXa+PAIvwPGQ==
-  /readdirp/3.3.0:
+  /readdirp/3.4.0:
     dependencies:
       picomatch: 2.2.2
     dev: false
     engines:
       node: '>=8.10.0'
     resolution:
-      integrity: sha512-zz0pAkSPOXXm1viEwygWIPSPkcBYjW1xU5j/JBh5t9bGCJwa6f9+BJa6VaB2g+b55yVrmXzqkyLf4xaWYM0IkQ==
+      integrity: sha512-0xe001vZBnJEK+uKcj8qOhyAKPzIT+gStxWr3LCB0DwcXR5NZJ3IaC+yGnHCYzB/S7ov3m3EEbZI2zeNvX+hGQ==
   /rechoir/0.6.2:
     dependencies:
       resolve: 1.13.1
@@ -5605,7 +5605,7 @@ specifiers:
   gulp-mocha: ^7.0.2
   gulp-prettier: ^2.3.0
   gulp-typescript: ^6.0.0-alpha.1
-  howsmydriving-utils: ^0.1.189
+  howsmydriving-utils: ^0.1.190
   log4js: ^4.0.2
   mocha: ^6.2.2
   mocha-typescript: ^1.1.17
