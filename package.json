@@ -1,6 +1,6 @@
 {
 	"name": "howsmydriving-nyc",
-	"version": "0.1.51",
+	"version": "0.1.52",
 	"description": "NYC region plug-in for @HowsMyDrivingWA.",
 	"declaration": true,
 	"main": "./dist/index.js",
