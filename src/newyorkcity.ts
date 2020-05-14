@@ -227,6 +227,8 @@ export class NewYorkCity extends Region {
   }
 
   GetRecentCollisions(): Promise<Array<ICollision>> {
+    log.info(`Collisions feature is not implemented in NYC region plugin.`);
+
     return Promise.resolve([]);
   }
 
