@@ -1,6 +1,6 @@
 {
 	"name": "howsmydriving-nyc",
-	"version": "0.1.52",
+	"version": "0.1.53",
 	"description": "NYC region plug-in for @HowsMyDrivingWA.",
 	"declaration": true,
 	"main": "./dist/index.js",
@@ -12,7 +12,7 @@
 		"@types/node": "^12.12.14", 
 		"chokidar": "^3.3.0",
 		"@google/maps": "^1.1.0",
-		"howsmydriving-utils": "^0.1.194",
+		"howsmydriving-utils": "^0.1.195",
 		"log4js": "^4.0.2",
 		"packpath": "^0.1.0",
 		"request-promise": "^4.2.5",
