@@ -13,7 +13,7 @@
 		"chokidar": "^3.3.0",
 		"@google/maps": "^1.1.0",
 		"howsmydriving-utils": "^0.1.195",
-		"log4js": "^4.0.2",
+		"log4js": "^6.4.0",
 		"packpath": "^0.1.0",
 		"request-promise": "^4.2.5",
 		"uuid": "^3.3.3"
